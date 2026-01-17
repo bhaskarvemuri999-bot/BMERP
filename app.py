@@ -9,13 +9,7 @@ from pathlib import Path
 st.set_page_config(page_title="One‑Page ERP", layout="wide")
 DATA_DIR = Path(__file__).parent
 MACHINES = ["M001", "M002", "M003"]
-
-# ---------------------------------------------------
-# SHIFT LOGIC
-# ---------------------------------------------------
-def get_shift(dt):
-    hour = dt.hour
-    return "A" if 8 <= hour < 20 else "B"
+SHIFTS = ["A", "B"]
 
 # ---------------------------------------------------
 # CSV HELPERS
@@ -53,7 +47,7 @@ def show_shift_and_monthly(df, numeric_cols, title_prefix, shift_filename, month
     shift_df = df.groupby(["Date", "Shift"])[numeric_cols].sum().reset_index()
     st.dataframe(shift_df, use_container_width=True)
     st.download_button(
-        f"Download Shift‑wise {title_prefix} CSV",
+        f"Download Shift-wise {title_prefix} CSV",
         shift_df.to_csv(index=False).encode("utf-8"),
         shift_filename
     )
@@ -74,10 +68,8 @@ st.title("One‑Page ERP – Entry + Dashboard")
 
 now = datetime.now()
 auto_datetime = now.strftime("%Y-%m-%d %H:%M")
-auto_shift = get_shift(now)
 
 st.write(f"**Date & Time (auto):** {auto_datetime}")
-st.write(f"**Shift (auto):** {auto_shift}")
 
 st.markdown("---")
 st.header("Data Entry")
@@ -88,6 +80,9 @@ st.header("Data Entry")
 with st.form("one_page_form"):
 
     machine = st.selectbox("Machine", MACHINES)
+
+    # MANUAL SHIFT
+    shift = st.selectbox("Shift", SHIFTS)
 
     # Bottle Details
     bottle_type = st.text_input("Bottle Type")
@@ -101,9 +96,6 @@ with st.form("one_page_form"):
 
     # Material
     material_type = st.text_input("Material Type")
-
-    # Colour
-    colour = st.text_input("Colour")
 
     # Masterbatch
     mb_type = st.text_input("MB Type")
@@ -131,7 +123,6 @@ if submitted:
         "Bottle Type": bottle_type,
         "Item": item,
         "Material Type": material_type,
-        "Colour": colour,
         "MB Type": mb_type,
         "Rejection Reason": rej_reason,
     }.items():
@@ -151,7 +142,7 @@ if submitted:
         df_out = load_csv("output.csv")
         df_out = pd.concat([df_out, pd.DataFrame([{
             "DateTime": auto_datetime,
-            "Shift": auto_shift,
+            "Shift": shift,
             "Machine": machine,
             "Bottle Type": bottle_type,
             "Item": item,
@@ -165,31 +156,18 @@ if submitted:
         df_rm = load_csv("raw_material.csv")
         df_rm = pd.concat([df_rm, pd.DataFrame([{
             "DateTime": auto_datetime,
-            "Shift": auto_shift,
+            "Shift": shift,
             "Machine": machine,
             "Material Type": material_type,
             "Material KG Used": material_kg
         }])], ignore_index=True)
         save_csv("raw_material.csv", df_rm)
 
-        # BOTTLE COLOUR (DEFENSIVE SAVE)
-        df_col = load_csv("bottle_colour.csv")
-        df_col = pd.concat([df_col, pd.DataFrame([{
-            "DateTime": auto_datetime,
-            "Date": now.date(),
-            "Shift": auto_shift,
-            "Machine": machine,
-            "Bottle Type": bottle_type,
-            "Item": item,
-            "Colour": colour
-        }])], ignore_index=True)
-        save_csv("bottle_colour.csv", df_col)
-
         # MASTERBATCH
         df_mb = load_csv("masterbatch.csv")
         df_mb = pd.concat([df_mb, pd.DataFrame([{
             "DateTime": auto_datetime,
-            "Shift": auto_shift,
+            "Shift": shift,
             "Machine": machine,
             "MB Type": mb_type,
             "MB KG Used": mb_kg
@@ -200,7 +178,7 @@ if submitted:
         df_rej = load_csv("rejection.csv")
         df_rej = pd.concat([df_rej, pd.DataFrame([{
             "DateTime": auto_datetime,
-            "Shift": auto_shift,
+            "Shift": shift,
             "Machine": machine,
             "Bottle Type": bottle_type,
             "Item": item,
@@ -227,51 +205,6 @@ st.markdown("---")
 # RAW MATERIAL
 df_rm = load_csv("raw_material.csv")
 show_shift_and_monthly(df_rm, ["Material KG Used"], "Raw Material", "shift_raw_material.csv", "monthly_raw_material.csv")
-
-st.markdown("---")
-
-# ---------------------------------------------------
-# DEFENSIVE BOTTLE COLOUR DASHBOARD
-# ---------------------------------------------------
-df_col = load_csv("bottle_colour.csv")
-
-st.subheader("Bottle Colour – Shift‑wise")
-
-if df_col.empty:
-    st.info("No bottle colour data available.")
-
-else:
-    # Ensure required columns exist
-    required_cols = ["Date", "Shift", "Colour", "Bottle Type", "Item"]
-
-    # Auto-fix missing Date column
-    if "Date" not in df_col.columns and "DateTime" in df_col.columns:
-        df_col["DateTime"] = pd.to_datetime(df_col["DateTime"], errors="coerce")
-        df_col["Date"] = df_col["DateTime"].dt.date
-
-    # If still missing required columns → warn instead of crashing
-    if not all(col in df_col.columns for col in required_cols):
-        st.warning("Bottle Colour CSV contains old data. Delete bottle_colour.csv once to reset.")
-    else:
-        df_col["DateTime"] = pd.to_datetime(df_col["DateTime"], errors="coerce")
-        df_col["Month"] = df_col["DateTime"].dt.to_period("M").astype(str)
-
-        shift_df = (
-            df_col.groupby(["Date", "Shift", "Colour", "Bottle Type", "Item"])
-            .size()
-            .reset_index(name="Entries")
-        )
-        st.dataframe(shift_df, use_container_width=True)
-        st.download_button("Download Shift-wise Bottle Colour CSV", shift_df.to_csv(index=False).encode("utf-8"), "shift_bottle_colour.csv")
-
-        st.subheader("Bottle Colour – Monthly")
-        month_df = (
-            df_col.groupby(["Month", "Colour", "Bottle Type", "Item"])
-            .size()
-            .reset_index(name="Entries")
-        )
-        st.dataframe(month_df, use_container_width=True)
-        st.download_button("Download Monthly Bottle Colour CSV", month_df.to_csv(index=False).encode("utf-8"), "monthly_bottle_colour.csv")
 
 st.markdown("---")
 
