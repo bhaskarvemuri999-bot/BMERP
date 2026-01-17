@@ -148,3 +148,78 @@ show_shift_and_monthly(df_mb, ["MB KG Used"], "Masterbatch", "shift_masterbatch.
 st.markdown("---")
 df_rej = load_csv("rejection.csv")
 show_shift_and_monthly(df_rej, ["Rejection (kg)", "Rejection (bottles)"], "Rejection", "shift_rejection.csv", "monthly_rejection.csv")
+# ---------------------------------------------------
+# DELETE WRONG ENTRY SECTION
+# ---------------------------------------------------
+st.markdown("---")
+st.header("Delete Wrong Entry")
+
+MODULE_MAP = {
+    "Output": ("output.csv", ["DateTime", "Shift", "Machine", "Bottle Type", "Item", "Output (kg)", "Output (bottles)"]),
+    "Raw Material": ("raw_material.csv", ["DateTime", "Shift", "Machine", "Material Type", "Material KG Used"]),
+    "Masterbatch": ("masterbatch.csv", ["DateTime", "Shift", "Machine", "MB Type", "MB KG Used"]),
+    "Rejection": ("rejection.csv", ["DateTime", "Shift", "Machine", "Bottle Type", "Item", "Rejection (kg)", "Rejection (bottles)", "Rejection Reason"]),
+}
+
+module = st.selectbox("Select Module", list(MODULE_MAP.keys()))
+csv_name, cols = MODULE_MAP[module]
+
+df_mod = load_csv(csv_name)
+
+if df_mod.empty:
+    st.info(f"No data available in {module} to delete.")
+else:
+    df_mod = prepare_time_columns(df_mod)
+
+    # Filter by Date
+    available_dates = sorted(df_mod["Date"].dropna().unique())
+    sel_date = st.selectbox("Select Date", available_dates)
+    filtered = df_mod[df_mod["Date"] == sel_date]
+
+    # Filter by Shift
+    sel_shift = st.selectbox("Select Shift", SHIFTS)
+    filtered = filtered[filtered["Shift"] == sel_shift]
+
+    # Filter by Machine
+    available_machines = sorted(filtered["Machine"].dropna().unique())
+    if len(available_machines) == 0:
+        st.info("No entries for this Date and Shift.")
+    else:
+        sel_machine = st.selectbox("Select Machine", available_machines)
+        filtered = filtered[filtered["Machine"] == sel_machine]
+
+        if filtered.empty:
+            st.info("No entries match the selected filters.")
+        else:
+            st.write("Tap any row to select it for deletion.")
+
+            # Add RowID for selection
+            filtered_display = filtered.reset_index(drop=False)
+            filtered_display.rename(columns={"index": "RowID"}, inplace=True)
+
+            # FIX: Only show columns that exist
+            display_cols = [c for c in cols if c in filtered_display.columns] + ["RowID"]
+
+            st.dataframe(filtered_display[display_cols], use_container_width=True)
+
+            # Row selection (simulate click)
+            row_ids = filtered_display["RowID"].tolist()
+            sel_rowid = st.selectbox("Select Row to delete (simulates row click)", row_ids)
+
+            # Highlight selected row
+            st.markdown(
+                f"<div style='background-color:#fff3cd;padding:10px;border-radius:5px;'>"
+                f"<b>Warning:</b> You selected RowID <b>{sel_rowid}</b> for deletion.</div>",
+                unsafe_allow_html=True,
+            )
+
+            # Show selected row details
+            sel_row = df_mod.loc[sel_rowid]
+            st.write("Selected Entry Details:")
+            st.json(sel_row.to_dict())
+
+            # DELETE BUTTON
+            if st.button("DELETE ENTRY", type="primary"):
+                df_mod = df_mod.drop(index=sel_rowid)
+                save_csv(csv_name, df_mod)
+                st.success("Entry deleted successfully. Refresh the page to see updated data.")
