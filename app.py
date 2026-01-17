@@ -56,7 +56,9 @@ with st.form("one_page_form"):
     # MACHINE
     machine = st.selectbox("Machine", MACHINES)
 
-    # BOTTLE WEIGHT
+    # BOTTLE DETAILS
+    bottle_type = st.text_input("Bottle Type")
+    item = st.text_input("Item")
     bottle_weight = st.number_input("Bottle Weight (grams)", min_value=1.0, step=0.1)
 
     # OUTPUT
@@ -68,12 +70,11 @@ with st.form("one_page_form"):
         step=0.01,
     )
 
-    # MATERIAL TYPE
+    # MATERIAL
     material_type = st.text_input("Material Type")
 
     # COLOUR
     colour = st.text_input("Colour")
-    batches = st.number_input("Batches", min_value=0)
 
     # MASTERBATCH
     mb_type = st.text_input("MB Type")
@@ -89,7 +90,7 @@ with st.form("one_page_form"):
     )
     rej_reason = st.text_input("Rejection Reason")
 
-    # MATERIAL USED (AUTO = OUT KG + REJ KG, OVERRIDE ALLOWED)
+    # MATERIAL USED (AUTO)
     auto_material_used = out_kg + rej_kg
     material_kg = st.number_input(
         "Material KG Used – auto calculated (override allowed)",
@@ -104,6 +105,10 @@ with st.form("one_page_form"):
 # ---------------------------------------------------
 if submitted:
     missing = []
+    if bottle_type.strip() == "":
+        missing.append("Bottle Type")
+    if item.strip() == "":
+        missing.append("Item")
     if material_type.strip() == "":
         missing.append("Material Type")
     if colour.strip() == "":
@@ -114,127 +119,93 @@ if submitted:
         missing.append("Rejection Reason")
 
     if bottle_weight <= 0:
-        missing.append("Bottle Weight (grams)")
+        missing.append("Bottle Weight")
     if out_bottles <= 0:
         missing.append("Output (bottles)")
     if out_kg <= 0:
         missing.append("Output (kg)")
     if material_kg <= 0:
         missing.append("Material KG Used")
-    if rej_bottles < 0:
-        missing.append("Rejection (bottles)")
-    if rej_kg < 0:
-        missing.append("Rejection (kg)")
 
     if missing:
-        st.error("Please fill all fields correctly: " + ", ".join(missing))
+        st.error("Please fill all fields: " + ", ".join(missing))
+
     else:
         # OUTPUT
         df_out = load_csv("output.csv")
-        df_out = pd.concat(
-            [
-                df_out,
-                pd.DataFrame(
-                    [
-                        {
-                            "DateTime": auto_datetime,
-                            "Shift": auto_shift,
-                            "Machine": machine,
-                            "Bottle Weight (g)": bottle_weight,
-                            "Output (kg)": out_kg,
-                            "Output (bottles)": out_bottles,
-                        }
-                    ]
-                ),
-            ],
-            ignore_index=True,
-        )
+        df_out = pd.concat([
+            df_out,
+            pd.DataFrame([{
+                "DateTime": auto_datetime,
+                "Shift": auto_shift,
+                "Machine": machine,
+                "Bottle Type": bottle_type,
+                "Item": item,
+                "Bottle Weight (g)": bottle_weight,
+                "Output (kg)": out_kg,
+                "Output (bottles)": out_bottles
+            }])
+        ], ignore_index=True)
         save_csv("output.csv", df_out)
 
         # RAW MATERIAL
         df_rm = load_csv("raw_material.csv")
-        df_rm = pd.concat(
-            [
-                df_rm,
-                pd.DataFrame(
-                    [
-                        {
-                            "DateTime": auto_datetime,
-                            "Shift": auto_shift,
-                            "Machine": machine,
-                            "Material Type": material_type,
-                            "Material KG Used": material_kg,
-                        }
-                    ]
-                ),
-            ],
-            ignore_index=True,
-        )
+        df_rm = pd.concat([
+            df_rm,
+            pd.DataFrame([{
+                "DateTime": auto_datetime,
+                "Shift": auto_shift,
+                "Machine": machine,
+                "Material Type": material_type,
+                "Material KG Used": material_kg
+            }])
+        ], ignore_index=True)
         save_csv("raw_material.csv", df_rm)
 
-        # BOTTLE COLOUR
+        # COLOUR
         df_col = load_csv("bottle_colour.csv")
-        df_col = pd.concat(
-            [
-                df_col,
-                pd.DataFrame(
-                    [
-                        {
-                            "DateTime": auto_datetime,
-                            "Shift": auto_shift,
-                            "Machine": machine,
-                            "Colour": colour,
-                            "Batches": batches,
-                        }
-                    ]
-                ),
-            ],
-            ignore_index=True,
-        )
+        df_col = pd.concat([
+            df_col,
+            pd.DataFrame([{
+                "DateTime": auto_datetime,
+                "Shift": auto_shift,
+                "Machine": machine,
+                "Bottle Type": bottle_type,
+                "Item": item,
+                "Colour": colour
+            }])
+        ], ignore_index=True)
         save_csv("bottle_colour.csv", df_col)
 
         # MASTERBATCH
         df_mb = load_csv("masterbatch.csv")
-        df_mb = pd.concat(
-            [
-                df_mb,
-                pd.DataFrame(
-                    [
-                        {
-                            "DateTime": auto_datetime,
-                            "Shift": auto_shift,
-                            "Machine": machine,
-                            "MB Type": mb_type,
-                            "MB KG Used": mb_kg,
-                        }
-                    ]
-                ),
-            ],
-            ignore_index=True,
-        )
+        df_mb = pd.concat([
+            df_mb,
+            pd.DataFrame([{
+                "DateTime": auto_datetime,
+                "Shift": auto_shift,
+                "Machine": machine,
+                "MB Type": mb_type,
+                "MB KG Used": mb_kg
+            }])
+        ], ignore_index=True)
         save_csv("masterbatch.csv", df_mb)
 
         # REJECTION
         df_rej = load_csv("rejection.csv")
-        df_rej = pd.concat(
-            [
-                df_rej,
-                pd.DataFrame(
-                    [
-                        {
-                            "DateTime": auto_datetime,
-                            "Shift": auto_shift,
-                            "Machine": machine,
-                            "Rejection (kg)": rej_kg,
-                            "Rejection (bottles)": rej_bottles,
-                            "Rejection Reason": rej_reason,
-                            "Bottle Weight (g)": bottle_weight,
-                        }
-                    ]
-                ),
-            ],
-            ignore_index=True,
-        )
+        df_rej = pd.concat([
+            df_rej,
+            pd.DataFrame([{
+                "DateTime": auto_datetime,
+                "Shift": auto_shift,
+                "Machine": machine,
+                "Bottle Type": bottle_type,
+                "Item": item,
+                "Rejection (kg)": rej_kg,
+                "Rejection (bottles)": rej_bottles,
+                "Rejection Reason": rej_reason
+            }])
+        ], ignore_index=True)
         save_csv("rejection.csv", df_rej)
 
         st.success("All entries saved successfully!")
@@ -251,7 +222,7 @@ def prepare_time_columns(df):
         df["Month"] = df["DateTime"].dt.to_period("M").astype(str)
     return df
 
-def show_shift_and_monthly(df, shift_group_cols, numeric_cols, title_prefix, shift_filename, month_filename):
+def show_shift_and_monthly(df, numeric_cols, title_prefix, shift_filename, month_filename):
     if df.empty:
         st.info(f"No {title_prefix.lower()} data available.")
         return
@@ -292,7 +263,6 @@ st.header("Dashboard – Shift‑wise & Monthly Summary")
 df_out = load_csv("output.csv")
 show_shift_and_monthly(
     df_out,
-    ["Date", "Shift"],
     ["Output (kg)", "Output (bottles)"],
     "Output",
     "shift_output.csv",
@@ -305,7 +275,6 @@ st.markdown("---")
 df_rm = load_csv("raw_material.csv")
 show_shift_and_monthly(
     df_rm,
-    ["Date", "Shift"],
     ["Material KG Used"],
     "Raw Material",
     "shift_raw_material.csv",
@@ -318,8 +287,7 @@ st.markdown("---")
 df_col = load_csv("bottle_colour.csv")
 show_shift_and_monthly(
     df_col,
-    ["Date", "Shift"],
-    ["Batches"],
+    ["Bottle Type", "Item"],  # No numeric fields, but grouping still works
     "Bottle Colour",
     "shift_bottle_colour.csv",
     "monthly_bottle_colour.csv",
@@ -331,7 +299,6 @@ st.markdown("---")
 df_mb = load_csv("masterbatch.csv")
 show_shift_and_monthly(
     df_mb,
-    ["Date", "Shift"],
     ["MB KG Used"],
     "Masterbatch",
     "shift_masterbatch.csv",
@@ -344,7 +311,6 @@ st.markdown("---")
 df_rej = load_csv("rejection.csv")
 show_shift_and_monthly(
     df_rej,
-    ["Date", "Shift"],
     ["Rejection (kg)", "Rejection (bottles)"],
     "Rejection",
     "shift_rejection.csv",
